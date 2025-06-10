@@ -1,0 +1,44 @@
+[
+    {
+        "winners": [
+            {
+                "Name": "tati",
+                "Number": 76
+            },
+            {
+                "Name": "tati",
+                "Number": 25
+            },
+            {
+                "Name": "tati",
+                "Number": 76
+            }
+        ],
+        "numbers": [
+            76,
+            25,
+            76
+        ]
+    },
+    {
+        "winners": [
+            {
+                "Name": "Juan",
+                "Number": "1"
+            },
+            {
+                "Name": "Juan",
+                "Number": "1"
+            },
+            {
+                "Name": "tati",
+                "Number": 25
+            }
+        ],
+        "numbers": [
+            1,
+            1,
+            25
+        ]
+    }
+]
