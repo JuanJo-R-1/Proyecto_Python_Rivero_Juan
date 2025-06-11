@@ -348,6 +348,7 @@ def menu():
             play_lottery()
             press_ent()
         elif option == 8:
+            show_winners()
             press_ent()
         elif option == 9:
             return start()
@@ -563,7 +564,7 @@ def buy_tickets(current_user):
         print(f"\nEnter the 6 numbers for the ticket #{i+1} (between 01 and 99, no repeat in this ticket or in other tickets):")
         ticket = ask_six_numbers_by_position(used_by_position)
         if not ticket:
-            print("No se pudo generar el boleto. Ya no hay suficientes números disponibles para más boletos.")
+            print("The ticket can't be generated due to lack of available numbers.")
             break  # <-- Rompe el ciclo si ya no se pueden generar más boletos
         tickets.append({"Name": current_user, "Numbers": ticket})
         for idx, num in enumerate(ticket):
@@ -611,7 +612,7 @@ def ask_six_numbers(used_numbers_global):
 
 def ask_six_numbers_by_position(used_by_position):
     while True:
-        choice = input("¿Quieres ingresar los números manualmente (M) o aleatoriamente (A)? [M/A]: ").strip().upper()
+        choice = input("Do you wanna enter the numbers by yourself(M or automatically(A): ").strip().upper()
         if choice in ("M", "A"):
             break
         print("Opción inválida. Escribe 'M' o 'A'.")
@@ -619,11 +620,11 @@ def ask_six_numbers_by_position(used_by_position):
     for pos in range(6):
         disponibles = [str(i).zfill(2) for i in range(1, 100) if str(i).zfill(2) not in used_by_position[pos]]
         if not disponibles:
-            print(f"No hay números disponibles para la posición {pos+1}. No se puede generar más boletos.")
+            print(f"There aren't enough available numbers for position {pos+1}. Cancelling this ticket.")
             return []
         if choice == "M":
             while True:
-                num = input(f"Número para la posición {pos+1} (entre 01 y 99, no repetido en esta posición): ").zfill(2)
+                num = input(f"Put numbers for position {pos+1} (between 01 and 99,): ").zfill(2)
                 if num in disponibles:
                     numbers.append(num)
                     break
@@ -634,6 +635,29 @@ def ask_six_numbers_by_position(used_by_position):
             print(f"Número aleatorio para la posición {pos+1}: {num}")
             numbers.append(num)
     return numbers
+
+def show_winners():
+    clean_term()
+    try:
+        with open("w_history.json", "r") as file:
+            history = json.load(file)
+            if not history:
+                print("No hay sorteos realizados aún.")
+                press_ent()
+                return
+            print("=== Winners History ===\n")
+            for idx, draw in enumerate(history, 1):
+                print(f"Sorteo #{idx} - Fecha: {draw['Date']}")
+                print(f"Boleto ganador: {' '.join(draw['Winner_ticket'])}")
+                print("Ganadores:")
+                for result in draw["results"]:
+                    if result["successes"] >= 3:  # Puedes ajustar el mínimo de aciertos para mostrar
+                        print(f"  {result['Name']} | Boleto: {' '.join(result['Ticket'])} | Aciertos: {result['successes']} | Premio: {result['Prize']} | Ganancia: {result['Revenue']}")
+                print("-" * 40)
+            press_ent()
+    except (FileNotFoundError, json.JSONDecodeError):
+        print("No hay historial de sorteos aún.")
+        press_ent()
 
 load_config()  # <--- Carga la configuración guardada
 start()
