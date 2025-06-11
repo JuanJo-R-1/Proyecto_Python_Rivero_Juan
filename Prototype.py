@@ -2,6 +2,7 @@ import os
 import json
 import hashlib
 import random
+from datetime import datetime
 
 lottery_size = 0
 ticket_price = 0
@@ -47,6 +48,38 @@ def ask_lottery_number(used_numbers):
         else:
             print("Error. The bet number must be written with numbers, try again.")
 
+def save_config():
+    config = {
+        "lottery_size": lottery_size,
+        "lottery_prize": lottery_prize,
+        "ticket_price": ticket_price
+    }
+    with open("config.json", "w") as f:
+        json.dump(config, f)
+
+def load_config():
+    global lottery_size, lottery_prize, ticket_price
+    try:
+        with open("config.json", "r") as f:
+            config = json.load(f)
+            lottery_size = config.get("lottery_size", 0)
+            lottery_prize = config.get("lottery_prize", 0)
+            ticket_price = config.get("ticket_price", 0)
+    except (FileNotFoundError, json.JSONDecodeError):
+        lottery_size = 0
+        lottery_prize = 0
+        ticket_price = 0
+if __name__ == "__main__":
+    try:
+        with open("suerte.json", "r") as file:
+            content = file.read().strip()
+            if not content:
+                with open("suerte.json", "w") as file:
+                    json.dump([], file)
+    except FileNotFoundError:
+        with open("suerte.json", "w") as file:
+            json.dump([], file)
+
 def bet_size():
     global lottery_size
     clean_term()
@@ -60,6 +93,7 @@ def bet_size():
             else:
                 print(f"The size of the lottery is {size}, acceptable.")
                 lottery_size = size
+                save_config()  # <--- Guarda la configuración
                 return size
         except ValueError:
             print("Error. The size of the lottery must be a number, try again.")
@@ -77,16 +111,18 @@ def Asign_lottery_prize():
             else:
                 print(f"the size of the lottery is {prize}, acceptable")
                 lottery_prize = prize
+                save_config()  # <--- Guarda la configuración
                 return prize
         except ValueError:
             print("Error. The prize of the lottery must be a number, try again")
 
-def Asign_ticket_price():#calcula el precio del boleto, teniendo en cuenta el premio y la cantidad de personas
+def Asign_ticket_price():
     clean_term()
     global ticket_price
     while True:
         ticket_price = ((lottery_prize/lottery_size)*1.2)
         print(f"the price of the tickets wiil be: {ticket_price}")
+        save_config()  # <--- Guarda la configuración
         return ticket_price
 
 def user_data(current_user=None):
@@ -104,7 +140,6 @@ def user_data(current_user=None):
                 used_numbers.add(int(p["Number"]))
     except (FileNotFoundError, json.JSONDecodeError):
         existing = []
-
     if current_user:  # Usuario normal, solo puede agregarse a sí mismo
         Name = current_user
         ticket = ask_lottery_number(used_numbers)
@@ -132,7 +167,7 @@ def show_participants():#muestra a los participantes que hay en el momento
             if participants:
                 print("Current participants:")
                 for participant in participants:
-                    print(f"Name: {participant['Name']}, Number: {participant['Number']}")#muestra los nombres y numeros, si no hay, pide ingresar
+                    print(f"Name: {participant['Name']}, Numbers: {', '.join(participant['Numbers'])}")#muestra los nombres y numeros, si no hay, pide ingresar
             else:
                 print("No participants found.")
     except FileNotFoundError:
@@ -147,31 +182,26 @@ def edit_participants():#edita la informacion de los participantes, nombre(sin r
                 print("No participants were found to edit.")
                 return
             print("Current participants:")
-            for participant in participants:
-                print(f"Name: {participant['Name']}, Number: {participant['Number']}")
-            number = input("Enter the number by which the participant bet to edit: ").strip()#numero de la lotería
-            found = False
-            for participant in participants:
-                if participant['Number'] == number:
-                    new_name = ask_letters("Enter the new name for the participant: ")#nuevo nombre del usuario
-                    used_numbers = set(int(p["Number"]) for p in participants if p["Number"] != number)
-                    new_number = ask_lottery_number(used_numbers)
-                    participant['Name'] = new_name
-                    participant['Number'] = new_number
-                    found = True
-                    break
-            if found:
+            for idx, participant in enumerate(participants, 1):
+                print(f"{idx}. Name: {participant['Name']}, Numbers: {', '.join(participant['Numbers'])}")
+            idx_to_edit = int(input("Enter the number of the user you want to edit: ")) - 1
+            if 0 <= idx_to_edit < len(participants):
+                new_name = ask_letters("Enter the new name for the participant: ")
+                new_numbers = ask_six_numbers()
+                participants[idx_to_edit]['Name'] = new_name
+                participants[idx_to_edit]['Numbers'] = new_numbers
                 with open("suerte.json", "w") as file:
                     json.dump(participants, file, indent=4)
-                    print("Participant updated successfully.")#guardado confirmado
+                print("Participant updated successfully.")
             else:
-                print("No participant found with that number.")
+                print("out of range.")
     except FileNotFoundError:
         print("No participants data found. Please add participants first.")
+    except ValueError:
+        print("Invalid character.")
 
-def delete_participants():#desicion del admin de borrar participantes(usuarios normales)
+def delete_participants():
     clean_term()
-    participants = []
     try:
         with open("suerte.json", "r") as file:
             participants = json.load(file)
@@ -179,50 +209,80 @@ def delete_participants():#desicion del admin de borrar participantes(usuarios n
                 print("No participants were found to delete.")
                 return
             print("Current participants:")
-            for participant in participants:
-                print(f"Name: {participant['Name']}, Number: {participant['Number']}")
-            number = input("Enter the number by which the participant bet to delete: ").strip()#los elige por el numero que eligieron
-            new_participants = [p for p in participants if p['Number'] != number]
-            if len(new_participants) < len(participants):
+            for idx, participant in enumerate(participants, 1):
+                print(f"{idx}. Name: {participant['Name']}, Numbers: {', '.join(participant['Numbers'])}")
+            idx_to_delete = int(input("Enter the number of the ticket you want to delete: ")) - 1
+            if 0 <= idx_to_delete < len(participants):
+                del participants[idx_to_delete]
                 with open("suerte.json", "w") as file:
-                    json.dump(new_participants, file, indent=4)
-                    print("Participant deleted successfully.")
+                    json.dump(participants, file, indent=4)
+                print("Participant deleted successfully.")
             else:
-                print("No participant found with that number.")
+                print("Índice fuera de rango.")
     except FileNotFoundError:
         print("No participants data found. Please add participants first.")
+    except ValueError:
+        print("Entrada inválida.")
 
 def play_lottery():#juega la lotería
     clean_term()
     try:
         with open("suerte.json", "r") as file:
             participants = json.load(file)
-            if not participants:#ejecuta los participantes que hay, si no, no ejecuta y menciona que no hay
+            if not participants:
                 print("No participants found. Please add participants first.")
                 return
-            assigned_numbers = [int(p["Number"]) for p in participants]#solo usa los numeros que ya fueron ocupados por los participantes
-            num_winners = min(6, len(assigned_numbers))
-            winners_numbers = [random.choice(assigned_numbers) for _ in range(num_winners)]
-            winners = [next(p for p in participants if int(p["Number"]) == wn) for wn in winners_numbers]
-            print("Winners of the lottery:")#menciona a los ganadores de la lotería que fueron elegidos de forma aleatoria
-            for idx, winner in enumerate(winners, 1):
-                print(f"{idx}. Name: {winner['Name']}, Number: {winner['Number']}")
-            try:
-                with open("w_history.json", "r") as hfile:
-                    history = json.load(hfile)
-            except (FileNotFoundError, json.JSONDecodeError):
-                history = []
-            history_entry = {
-                "winners": winners,
-                "numbers": winners_numbers#menciona a los ganadores con sus  numeros y los almacena en su archivo json
-            }
-            history.append(history_entry)
-            with open("w_history.json", "w") as hfile:
-                json.dump(history, hfile, indent=4)
-            print("Winners saved to history.")
     except FileNotFoundError:
         print("No participants data found. Please add participants first.")
         return
+    winner_ticket = Make_winner_ticket()
+    print(f"\nWinner ticket: {' '.join(winner_ticket)}\n")
+    results = []
+    prizes = {6: "Biggest prize", 5: "Medium prize", 4: "Small prize", 3: "No prize", 2: "No prize", 1: "No prize", 0: "No prize"}
+    date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    total_tickets = len(participants)
+    total_money = ticket_price * total_tickets
+    investment = total_money - lottery_prize
+    for ticket in participants:
+        successes = len(set(ticket["Numbers"]) & set(winner_ticket))
+        if successes == 6:
+            Revenue = lottery_prize/2
+        elif successes == 5:
+            Revenue = lottery_prize/3
+        elif successes == 4:
+            Revenue = lottery_prize/6
+        else:
+            Revenue = 0
+        Revenue -= ticket_price
+        results.append({
+            "Date": date,
+            "Name": ticket["Name"],
+            "Ticket": ticket["Numbers"],
+            "successes": successes,
+            "Prize": prizes.get(successes, "No prize"),
+            "Revenue": Revenue
+        })
+    for r in results:    # Mostrar resultados
+        print(f"{r['Date']} | {r['Name']} | Ticket: {' '.join(r['Ticket'])} | successes: {r['successes']} | {r['Prize']} | Revenue: {r['Revenue']}")
+    print(f"\nTotal money got: {total_money}")
+    print(f"total prize: {lottery_prize}")
+    print(f"Extra Revenue for the admin: {investment}")
+    # Guardar historial
+    try:
+        with open("w_history.json", "r") as hfile:
+            history = json.load(hfile)
+    except (FileNotFoundError, json.JSONDecodeError):
+        history = []
+    history.append({
+        "Date": date,
+        "Winner_ticket": winner_ticket,
+        "results": results,
+        "total_money": total_money,
+        "investment": investment
+    })
+    with open("w_history.json", "w") as hfile:
+        json.dump(history, hfile, indent=4)
+    print("\nResults saved in the record.")
 
 def press_ent():#presionar Enter para continuar
     input('Press Enter to continue')
@@ -241,7 +301,7 @@ def menu():
                     participants = json.loads(content)
                     if participants:
                         for participant in participants:
-                            print(f"Name: {participant['Name']}, Number: {participant['Number']}")
+                            print(f"Name: {participant['Name']}, Numbers: {participant['Numbers']}")
                     else:
                         print("No participants found.")
         except FileNotFoundError:
@@ -250,25 +310,15 @@ def menu():
             print("Error reading participants data. The file may be corrupted.")
         print("\n")
         print("""
-
 1.  Enter the size of the lottery              
-
 2.  Enter the lottery prize
-
 3.  Enter the ticket price
-
 4.  Show current participants
-
 5.  Edit participants
-
 6.  Delete participants
-
 7.  Play the lottery
-
 8.  Show the list of winners
-
 9.  Exit
-
 """)
         try:
             option = int(input("select one of the options: \n"))
@@ -329,8 +379,8 @@ def register_user():
         print("You cannot use the admin's username.")
         return False
     if not users:
-        clean_term()#Se crea un usuario de administrador, único
-        password = input("Choose a password: ").strip()
+        clean_term()
+        password = input("Choose a password: ").strip()#Se crea un usuario de administrador, único
         while True:
             code = input("Enter a 4-digit admin code (e.g. 1234): ").strip()#el admin elige su propio codigo de 4 digitos
             if code.isdigit() and len(code) == 4:
@@ -343,6 +393,7 @@ def register_user():
             "code": code
         }
         print(f"Admin registered with code: {code}")
+        press_ent()
     else:
         clean_term()
         code = generate_unique_code(users)#Se crea uno de multiples usuarios normales
@@ -352,6 +403,7 @@ def register_user():
             "code": code
         }
         print(f"User registered. Your access code is: {code}")
+        press_ent()
     with open("users.json", "w") as f:
         json.dump(users, f)
     print(f"User registered successfully as {role}.")
@@ -366,7 +418,6 @@ def login_user(): #Se usa ingresar el nombre del usuario en la pagina a menos qu
     except (FileNotFoundError, json.JSONDecodeError):
         print("No users registered.")
         return start()
-
     if username in users:#si el usuario existe, le ejecuta lo siguiente
         user = users[username]
         if user["role"] == "admin":#si elige admin, le pide el usuario, la contraseña y el codigo
@@ -404,7 +455,6 @@ def start():#Genera la pagina principal, el menu,
                 
 [̲̅$̲̅( ͡• ‿ ͡•)̲̅$̲̅]  [̲̅$̲̅( ͡• ‿ ͡•)̲̅$̲̅]  [̲̅$̲̅( ͡• ‿ ͡•)̲̅$̲̅]
 
-
 ████████████████████████████████████████████
 ██▄ ▄███ ▄▄ █ ▄ ▄ █ ▄ ▄ █▄ ▄▄ █▄ ▄▄▀█▄ █ ▄██
 ███ ██▀█ ██ ███ █████ ████ ▄█▀██ ▄ ▄██▄ ▄███
@@ -415,15 +465,12 @@ def start():#Genera la pagina principal, el menu,
 █████ █▄█ ███ ▄█▀██ █▄▀ ███ ██ ████
 ██▀▀▄▄▄▀▄▄▄▀▄▄▄▄▄▀▄▄▄▀▀▄▄▀▀▄▄▄▄▀▀██
 
-
 [̲̅$̲̅( ͡• ‿ ͡•)̲̅$̲̅]  [̲̅$̲̅( ͡• ‿ ͡•)̲̅$̲̅]  [̲̅$̲̅( ͡• ‿ ͡•)̲̅$̲̅]
                 
                 1. Login
-                
                 2. Register
-                
                 3. Exit
-                                
+                
                 """)#Da las opciones para que el usuario realize
             choice = input("Choose an option: ")
             if choice == "1":
@@ -439,7 +486,8 @@ def start():#Genera la pagina principal, el menu,
                 clean_term()
                 register_user()
             elif choice == "3":
-                break
+                print("Goodbye!")
+                break #vuelve a la pagina principal
             else:
                 print("Invalid option.")
         else:
@@ -449,11 +497,11 @@ def start():#Genera la pagina principal, el menu,
 def user_menu(current_user): #presenta el menu con las respectivas opciones que el usuario normal puede elegir
     while True:
         clean_term()
-        print(f"Bienvenido, {current_user}.\n")
-        print("1. Ver participantes")
-        print("2. Comprar boletos de lotería")
-        print("3. Salir")
-        option = input("Selecciona una opción: ")
+        print(f"Welcome, {current_user}.\n")
+        print("1. See current participants")
+        print("2. buy tickets")
+        print("3. Exit to main menu")
+        option = input("Select one option: ")
         if option == "1":
             show_participants()
             press_ent()
@@ -461,77 +509,131 @@ def user_menu(current_user): #presenta el menu con las respectivas opciones que 
             buy_tickets(current_user)
             press_ent()
         elif option == "3":
-            break
+            return start() #vuelve a la pagina principal
         else:
-            print("Opción inválida.")
+            print("Invalid option. Please try again.")
             press_ent()
 
-def buy_tickets(current_user): #si la loteria no ha sido configurada, no permite participar todavia, si está activa, continua el proceso con los datos almacenados
+def build_used_by_position(participants):
+    used_by_position = [set() for _ in range(6)]
+    for boleto in participants:
+        for idx, num in enumerate(boleto["Numbers"]):
+            used_by_position[idx].add(num)
+    return used_by_position
+
+def buy_tickets(current_user):
     global lottery_size, ticket_price
     if lottery_size == 0 or ticket_price == 0:
-        print("La lotería aún no está configurada. Intenta más tarde.")
+        print("The lottery isn't available for now. Please wait.")
         return
     try:
         with open("suerte.json", "r") as file:
             existing = json.load(file)
-            used_numbers = set(int(p["Number"]) for p in existing)
     except (FileNotFoundError, json.JSONDecodeError):
         existing = []
-        used_numbers = set()
-
-    print(f"El precio de cada boleto es: {ticket_price}")#Pone el valor de el boleto segun la ecuacion que ya se realizo antes, pero aca a eleccion y capacidad del usuario de cuantos boletos va a querer
+    used_by_position = build_used_by_position(existing)
+    print(f"The price for the ticket: {ticket_price}")
     while True:
         try:
-            money = float(input("¿Cuánto dinero deseas ingresar para comprar boletos?: "))
+            money = float(input("¿How much money do you want to spend?: "))
             if money < ticket_price:
-                print("No tienes suficiente para comprar un boleto.")
+                print("You don't have enough money to buy a ticket.")
                 return
             break
         except ValueError:
-            print("Ingresa una cantidad válida.")
-
-    max_tickets = int(money // ticket_price)# pone limites de cantidad de boletos y la eleccion de cuantos boletos va a querer el usuario normal
-    print(f"Puedes comprar hasta {max_tickets} boletos.")
+            print("Enter a valid quantity of money.")
+    # El máximo de boletos posibles es el mínimo de números disponibles en cualquier posición
+    max_possible_tickets = min(99 - len(pos) for pos in used_by_position)
+    max_tickets = min(int(money // ticket_price), max_possible_tickets)
+    if max_tickets == 0:
+        print("There aren't enough available numbers to buy a ticket.")
+        return
+    print(f"You can buy up to {max_tickets} tickets.")
     while True:
         try:
-            num_tickets = int(input(f"¿Cuántos boletos deseas comprar? (1-{max_tickets}): "))
+            num_tickets = int(input(f"¿How many tickets do you want to buy? (1-{max_tickets}): "))
             if 1 <= num_tickets <= max_tickets:
                 break
             else:
-                print("Cantidad fuera de rango.")
+                print("Quantity out of range")
         except ValueError:
-            print("Ingresa un número válido.")
-
-    tickets = [] #Se realiza la eleccion del numero de la lotería por el que el usuario normal va a elegir
+            print("Enter a valid number.")
+    tickets = []
     for i in range(num_tickets):
-        while True:
-            ticket_num = input(f"Ingrese el número para el boleto #{i+1} (1-{lottery_size}, sin repetir): ").strip()
-            if ticket_num.isdigit():
-                ticket_num = int(ticket_num)
-                if ticket_num in used_numbers:
-                    print("Ese número ya está ocupado. Elige otro.")
-                elif 1 <= ticket_num <= lottery_size:
-                    used_numbers.add(ticket_num)
-                    tickets.append({"Name": current_user, "Number": ticket_num})
-                    break
-                else:
-                    print(f"El número debe estar entre 1 y {lottery_size}.")
-            else:
-                print("Debes ingresar un número válido.")
-
-    all_participants = existing + tickets #se realiza la compra de boletos por parte de los usuarios normales
+        print(f"\nEnter the 6 numbers for the ticket #{i+1} (between 01 and 99, no repeat in this ticket or in other tickets):")
+        ticket = ask_six_numbers_by_position(used_by_position)
+        if not ticket:
+            print("No se pudo generar el boleto. Ya no hay suficientes números disponibles para más boletos.")
+            break  # <-- Rompe el ciclo si ya no se pueden generar más boletos
+        tickets.append({"Name": current_user, "Numbers": ticket})
+        for idx, num in enumerate(ticket):
+            used_by_position[idx].add(num)
+    all_participants = existing + tickets
     with open("suerte.json", "w") as file:
         json.dump(all_participants, file, indent=4)
-    print(f"¡Has comprado {num_tickets} boletos!")
+    order_suerte_json()
+    print(f"¡You have bought {len(tickets)} tickets!")
 
-if __name__ == "__main__":
+def Make_winner_ticket(): #Genera un boleto ganador aleatorio con 6 numeros del 01 al 99, para que los usuarios que mas se parezcan ganen premios
+    return sorted([str(random.randint(1, 99)).zfill(2) for _ in range(6)])
+
+def order_suerte_json():
     try:
         with open("suerte.json", "r") as file:
-            content = file.read().strip()
-            if not content:
-                with open("suerte.json", "w") as file:
-                    json.dump([], file)
-    except FileNotFoundError:
+            data = json.load(file)
+        data.sort(key=lambda x: x["Name"])# Ordena a los usuarios y sus numeros en el archivo suerte.json
         with open("suerte.json", "w") as file:
-            json.dump([], file)
-    start()
+            json.dump(data, file, indent=4)
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+
+def ask_six_numbers(used_numbers_global):
+    while True:
+        choice = input("¿Do you wanna enter the numbers yourself(M) or randomly(A)? [M/A]: ").strip().upper()
+        if choice in ("M", "A"):
+            break
+        print("Invalid choice. Please enter 'M' for manual or 'A' for automatic.")
+    numbers = []
+    if choice == "M":
+        while len(numbers) < 6:
+            num = input(f"number {len(numbers)+1}: ").zfill(2)
+            if num.isdigit() and 1 <= int(num) <= 99 and num not in numbers and num not in used_numbers_global:
+                numbers.append(num)
+            else:
+                print("Invalid number. It must be between 01 and 99, not repeated in this ticket or in other tickets.")
+    else:  # Aleatorio
+        posibility = [str(i).zfill(2) for i in range(1, 100) if str(i).zfill(2) not in used_numbers_global]
+        if len(posibility) < 6:
+            print("There isn't enough numbers available to generate a ticket. Cancelling this ticket.")
+            return []
+        numbers = random.sample(posibility, 6)
+    return numbers
+
+def ask_six_numbers_by_position(used_by_position):
+    while True:
+        choice = input("¿Quieres ingresar los números manualmente (M) o aleatoriamente (A)? [M/A]: ").strip().upper()
+        if choice in ("M", "A"):
+            break
+        print("Opción inválida. Escribe 'M' o 'A'.")
+    numbers = []
+    for pos in range(6):
+        disponibles = [str(i).zfill(2) for i in range(1, 100) if str(i).zfill(2) not in used_by_position[pos]]
+        if not disponibles:
+            print(f"No hay números disponibles para la posición {pos+1}. No se puede generar más boletos.")
+            return []
+        if choice == "M":
+            while True:
+                num = input(f"Número para la posición {pos+1} (entre 01 y 99, no repetido en esta posición): ").zfill(2)
+                if num in disponibles:
+                    numbers.append(num)
+                    break
+                else:
+                    print("Número inválido o ya usado en esta posición. Elige otro.")
+        else:  # Aleatorio
+            num = random.choice(disponibles)
+            print(f"Número aleatorio para la posición {pos+1}: {num}")
+            numbers.append(num)
+    return numbers
+
+load_config()  # <--- Carga la configuración guardada
+start()
